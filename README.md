@@ -1,58 +1,39 @@
 # model-serving-stack
 
-Production LLM serving infrastructure using Triton Inference Server, vLLM, and Ray Serve with OpenAI-compatible endpoints. Includes Kubernetes autoscaling driven by DCGM GPU metrics and a BentoML packaging path for portable model deployment.
+Production LLM serving infrastructure using Triton Inference Server, vLLM, and Ray Serve with OpenAI-compatible endpoints. Includes DCGM GPU autoscaling, Grafana monitoring, and BentoML packaging.
 
-**Target Role:** [Solutions Architect, Agentic AI — NVIDIA JR2014517](https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/Solutions-Architect--Agentic-AI_JR2014517) | LLM Model Builder JR2014441580
+## Stack
+- **Triton Inference Server** — multi-framework model serving
+- **vLLM** — high-throughput LLM serving with PagedAttention
+- **Ray Serve** — scalable model deployment with autoscaling
+- **BentoML** — portable model packaging and deployment
+- **DCGM** — GPU metrics and autoscaling signals
 
-## Architecture
-
+## Structure
 ```
 model-serving-stack/
-├── triton/                    # NVIDIA Triton Inference Server
-│   ├── model_repository/      # Triton model configs (config.pbtxt)
-│   ├── client.py              # HTTP/gRPC client wrapper
-│   └── perf_analyzer.sh       # Triton perf_analyzer benchmark script
-├── vllm/                      # vLLM OpenAI-compatible server
-│   ├── server.py
-│   ├── openai_server.py
-│   ├── batching_config.yaml
-│   └── client_test.py
-├── ray_serve/                 # Ray Serve multi-model router
-│   ├── deployment.py
-│   ├── autoscaling_config.yaml
-│   └── multi_model_router.py
-├── bentoml/                   # BentoML packaging path
-│   ├── service.py
-│   ├── bentofile.yaml
-│   └── build_and_push.sh
-├── kubernetes/                # K8s manifests + DCGM HPA
-├── monitoring/                # Prometheus + Grafana GPU dashboard
-├── configs/models.yaml
-├── docker-compose.yml
-└── README.md
+├── triton/              # Triton model repo + config
+├── vllm/               # vLLM server configs and scripts
+├── ray_serve/          # Ray Serve deployment definitions
+├── bentoml/            # BentoML service and packaging
+├── autoscaling/        # HPA manifests driven by DCGM metrics
+├── monitoring/         # Grafana dashboards + Prometheus rules
+├── deploy/             # Docker Compose + Kubernetes manifests
+├── api/                # OpenAI-compatible FastAPI gateway
+├── configs/            # Model and serving configs
+├── evals/              # Latency/throughput benchmarks
+├── tests/              # Unit + integration tests
+└── docs/               # Architecture docs
 ```
 
 ## Quick Start
-
 ```bash
 cp .env.template .env
-# Edit .env with your model paths and API keys
-docker-compose up
+# Fill in NGC_API_KEY, MODEL_PATH, etc.
+docker compose -f deploy/docker-compose.yml up
 ```
 
-## Key Features
-
-- **Triton** — NVIDIA-native inference server with Python backend and ensemble pipeline support
-- **vLLM** — OpenAI `/v1/chat/completions` compatible; continuous batching + tensor parallelism
-- **DCGM HPA** — Kubernetes autoscaling on GPU utilization (not CPU) — enterprise production pattern
-- **Ray Serve** — Multi-model A/B routing and replica autoscaling
-- **Grafana Dashboard** — TTFT, tokens/sec, GPU memory, queue depth
-- **BentoML** — Portable bento packaging for cross-cloud deployment
-
-## Deployment Target
-
-This repo is the deployment target for models exported from [`llm-finetuning-lab`](https://github.com/TylrDn/llm-finetuning-lab) and benchmarked in [`inference-optimization-bench`](https://github.com/TylrDn/inference-optimization-bench).
-
-## Topics
-
-`triton-inference-server` `vllm` `ray-serve` `bentoml` `llm-serving` `kubernetes` `nvidia` `dcgm` `openai-api` `python` `gpu`
+## Requirements
+- NVIDIA GPU with CUDA 12+
+- Docker + NVIDIA Container Toolkit
+- Kubernetes (optional, for production)

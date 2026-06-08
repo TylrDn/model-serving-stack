@@ -1,0 +1,24 @@
+"""Unit tests for FastAPI gateway."""
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock
+from api.main import app
+
+client = TestClient(app)
+
+
+def test_health():
+    with patch("api.main.client") as mock_client:
+        mock_client.health_check.return_value = True
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+
+def test_chat_completions():
+    with patch("api.main.client") as mock_client:
+        mock_client.chat.return_value = "Machine learning is..."
+        response = client.post("/v1/chat/completions", json={
+            "messages": [{"role": "user", "content": "What is ML?"}]
+        })
+        assert response.status_code == 200
+        assert "choices" in response.json()

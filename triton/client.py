@@ -1,48 +1,23 @@
 """Triton HTTP/gRPC client wrapper."""
-from __future__ import annotations
-import numpy as np
-from typing import Optional
+import tritonclient.http as httpclient
+from dotenv import load_dotenv
+import os
 
-try:
-    import tritonclient.http as httpclient
-    import tritonclient.grpc as grpcclient
-except ImportError:
-    httpclient = None
-    grpcclient = None
+load_dotenv()
 
 
 class TritonClient:
-    """Unified HTTP + gRPC client for Triton Inference Server."""
-
-    def __init__(self, url: str = "localhost:8000", protocol: str = "http"):
-        self.url = url
-        self.protocol = protocol
-        if protocol == "grpc":
-            self.client = grpcclient.InferenceServerClient(url=url)
-        else:
-            self.client = httpclient.InferenceServerClient(url=url)
+    def __init__(self, url: str = None):
+        host = os.getenv("TRITON_HOST", "localhost")
+        port = os.getenv("TRITON_HTTP_PORT", "8000")
+        self.url = url or f"{host}:{port}"
+        self.client = httpclient.InferenceServerClient(url=self.url)
 
     def health_check(self) -> bool:
-        try:
-            return self.client.is_server_ready()
-        except Exception:
-            return False
+        return self.client.is_server_ready()
 
-    def infer(
-        self,
-        model_name: str,
-        prompt: str,
-        max_tokens: int = 512,
-        temperature: float = 0.7,
-    ) -> str:
-        if self.protocol == "grpc":
-            text_input = grpcclient.InferInput("text_input", [1], "BYTES")
-            text_input.set_data_from_numpy(np.array([prompt.encode()], dtype=object))
-            output = grpcclient.InferRequestedOutput("text_output")
-            result = self.client.infer(model_name, [text_input], outputs=[output])
-        else:
-            text_input = httpclient.InferInput("text_input", [1], "BYTES")
-            text_input.set_data_from_numpy(np.array([prompt.encode()], dtype=object))
-            output = httpclient.InferRequestedOutput("text_output")
-            result = self.client.infer(model_name, [text_input], outputs=[output])
-        return result.as_numpy("text_output")[0].decode("utf-8")
+    def list_models(self) -> list:
+        return self.client.get_model_repository_index()
+
+    def infer(self, model_name: str, inputs: list, outputs: list):
+        return self.client.infer(model_name=model_name, inputs=inputs, outputs=outputs)

@@ -1,0 +1,23 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-hpa
+  namespace: serving
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-server
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: External
+    external:
+      metric:
+        name: dcgm_gpu_utilization
+        selector:
+          matchLabels:
+            app: vllm-server
+      target:
+        type: AverageValue
+        averageValue: "80"

@@ -1,0 +1,49 @@
+version: '3.9'
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - ${MODEL_PATH}:/models
+    command: >
+      --model ${MODEL_NAME}
+      --host 0.0.0.0
+      --port 8000
+      --tensor-parallel-size ${TENSOR_PARALLEL_SIZE:-1}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - VLLM_HOST=vllm
+      - VLLM_PORT=8000
+    depends_on:
+      vllm:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

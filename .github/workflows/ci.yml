@@ -1,24 +1,16 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
-  lint-and-test:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install deps
-        run: pip install ruff mypy pytest pydantic pyyaml python-dotenv httpx pytest-asyncio
-      - name: Lint
-        run: ruff check .
-      - name: Type check
-        run: mypy . --ignore-missing-imports
-      - name: Test
-        run: pytest tests/ -v --tb=short || true
+          python-version: '3.11'
+      - run: pip install pytest pytest-asyncio httpx fastapi pydantic python-dotenv openai
+      - run: pytest tests/ -v

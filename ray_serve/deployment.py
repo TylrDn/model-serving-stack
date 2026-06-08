@@ -1,44 +1,44 @@
-"""Ray Serve LLM deployment class."""
-from __future__ import annotations
-import os
+"""Ray Serve LLM deployment with autoscaling."""
 from ray import serve
-from vllm import LLM, SamplingParams
-from pydantic import BaseModel
+from ray.serve.config import AutoscalingConfig
+from vllm.client import VLLMClient
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 app = FastAPI()
 
 
-class GenerateRequest(BaseModel):
-    prompt: str
-    max_tokens: int = 512
+class ChatRequest(BaseModel):
+    messages: list[dict]
     temperature: float = 0.7
+    max_tokens: int = 512
 
 
 @serve.deployment(
-    num_replicas=1,
+    autoscaling_config=AutoscalingConfig(
+        min_replicas=1,
+        max_replicas=4,
+        target_num_ongoing_requests_per_replica=8,
+    ),
     ray_actor_options={"num_gpus": 1},
-    autoscaling_config={
-        "min_replicas": 1,
-        "max_replicas": 4,
-        "target_num_ongoing_requests_per_replica": 8,
-    },
 )
 @serve.ingress(app)
 class LLMDeployment:
     def __init__(self):
-        model_name = os.getenv("VLLM_MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
-        self.llm = LLM(model=model_name, dtype="float16")
+        self.client = VLLMClient()
 
-    @app.post("/generate")
-    def generate(self, request: GenerateRequest) -> dict:
-        sampling_params = SamplingParams(temperature=request.temperature, max_tokens=request.max_tokens)
-        outputs = self.llm.generate([request.prompt], sampling_params)
-        return {"text": outputs[0].outputs[0].text}
+    @app.post("/chat")
+    async def chat(self, request: ChatRequest) -> dict:
+        response = self.client.chat(
+            messages=request.messages,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+        )
+        return {"response": response}
 
     @app.get("/health")
-    def health(self) -> dict:
-        return {"status": "ok"}
+    async def health(self) -> dict:
+        return {"status": "ok", "vllm_ready": self.client.health_check()}
 
 
 entrypoint = LLMDeployment.bind()
