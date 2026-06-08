@@ -1,0 +1,11 @@
+service: "service:LLMService"
+name: llm-serving
+version: "0.1.0"
+python:
+  packages:
+    - vllm
+    - fastapi
+    - pydantic
+docker:
+  base_image: nvcr.io/nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+  cuda_version: "12.1"

@@ -1,0 +1,37 @@
+# Horizontal Pod Autoscaler driven by DCGM GPU utilization metric
+# Requires DCGM Exporter DaemonSet + Prometheus Adapter configured
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-gpu-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-server
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: DCGM_FI_DEV_GPU_UTIL  # DCGM GPU utilization %
+          selector:
+            matchLabels:
+              gpu: "0"
+        target:
+          type: AverageValue
+          averageValue: "70"  # Scale up when avg GPU util > 70%
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120

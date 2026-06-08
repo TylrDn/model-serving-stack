@@ -1,0 +1,24 @@
+# Core serving
+vllm>=0.4.0
+ray[serve]>=2.10.0
+bentoml>=1.2.0
+tritonclient[http,grpc]>=2.43.0
+
+# API
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+httpx>=0.27.0
+
+# Monitoring
+prometheus-client>=0.20.0
+
+# Config
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+
+# Dev / test
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+ruff>=0.4.0
+mypy>=1.9.0

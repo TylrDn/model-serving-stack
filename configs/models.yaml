@@ -1,0 +1,21 @@
+# Model Registry — name, backend, path, precision
+# Used by Triton, vLLM, and Ray Serve to select serving backend
+
+models:
+  - name: llama3-8b
+    backend: vllm
+    path: meta-llama/Meta-Llama-3-8B-Instruct
+    precision: float16
+    tensor_parallel: 1
+
+  - name: llama3-70b
+    backend: triton
+    path: /models/llama3-70b
+    precision: float16
+    tensor_parallel: 4
+
+  - name: mistral-7b
+    backend: vllm
+    path: mistralai/Mistral-7B-Instruct-v0.2
+    precision: float16
+    tensor_parallel: 1

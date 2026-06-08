@@ -1,0 +1,9 @@
+# Ray Serve autoscaling configuration
+autoscaling:
+  min_replicas: 1
+  initial_replicas: 1
+  max_replicas: 4
+  target_num_ongoing_requests_per_replica: 8
+  upscale_delay_s: 30
+  downscale_delay_s: 300
+  metrics_interval_s: 10
