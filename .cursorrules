@@ -1,0 +1,274 @@
+# model-serving-stack — Cursor Rules
+
+## Project Identity
+
+This repo is the **NVIDIA Model Serving Stack** — a near-complete (95%) NVIDIA Solutions Architect portfolio asset demonstrating production LLM serving infrastructure. It integrates vLLM, NVIDIA Triton, Ray Serve, and BentoML behind a unified FastAPI gateway, with DCGM-based GPU monitoring, Prometheus/Grafana observability, Kubernetes HPA autoscaling, and structured request/response logging. This is a reference architecture for enterprise LLM deployment.
+
+**Portfolio signal:** Demonstrates end-to-end production serving stack expertise — multiple inference runtimes, GPU observability, autoscaling, and enterprise API patterns. Key signal for NVIDIA SA roles in cloud/hyperscaler/enterprise accounts.
+
+---
+
+## Tech Stack
+
+- **Python:** 3.11 (strict)
+- **Inference backends:** vLLM ≥0.4.0, NVIDIA Triton (tritonclient[grpc,http] ≥2.44), Ray Serve ≥2.10, BentoML ≥1.2
+- **API gateway:** FastAPI ≥0.110, uvicorn, starlette
+- **Observability:** Prometheus client ≥0.20, DCGM Exporter (sidecar), Grafana dashboards (JSON provisioned)
+- **Kubernetes:** kubectl, Helm (charts in kubernetes/), HPA with DCGM custom metrics
+- **Container:** Docker, NVIDIA Container Toolkit, `nvcr.io/nvidia/tritonserver:24.03-py3` base
+- **Testing:** pytest ≥8.1, pytest-mock, httpx (for FastAPI test client), locust ≥2.25 (load testing)
+- **Linting/Typing:** ruff ≥0.4 (line-length=100), mypy ≥1.9 (strict mode)
+
+---
+
+## Architecture Overview
+
+```
+api/
+  main.py               ← FastAPI gateway with structured logging middleware (primary interface)
+
+vllm/
+  server.py             ← vLLM OpenAI-compatible server wrapper
+  openai_server.py      ← FastAPI adapter for vLLM
+  client.py             ← vLLM client for internal use
+  batching_config.yaml
+
+triton/
+  client.py             ← Triton gRPC/HTTP client
+  model_repository/     ← CANONICAL model repo (llama3/)
+  # model_repo/ is DUPLICATE — must be removed
+
+ray_serve/
+  deployment.py         ← Ray Serve deployment class
+  multi_model_router.py ← Multi-model routing logic
+  autoscaling_config.yaml
+
+bentoml/
+  service.py            ← BentoML service definition
+  bentofile.yaml
+  build_and_push.sh
+
+kubernetes/
+  triton-deployment.yaml
+  vllm-deployment.yaml
+  hpa-dcgm.yaml         ← HPA using DCGM GPU utilization metric
+  dcgm-exporter.yaml
+  ingress.yaml
+
+monitoring/
+  grafana/
+    gpu_serving_dashboard.json  ← CANONICAL Grafana dashboard
+  prometheus/
+    prometheus.yml
+  # grafana_dashboard.json ROOT DUPLICATE — must be removed
+
+autoscaling/
+  hpa.yaml
+
+deploy/
+  Dockerfile
+  docker-compose.yml
+
+configs/
+  models.yaml
+  serving.yaml
+
+evals/
+  benchmark.py
+
+tests/
+
+docker-compose.yml      ← ROOT (confirmed present)
+```
+
+---
+
+## Coding Conventions
+
+### Type Hints
+- **Required everywhere** — `from __future__ import annotations` at top of all files.
+- `X | None` not `Optional[X]`. `list[str]`, `dict[str, Any]`.
+- FastAPI Pydantic v2 models for all request/response schemas.
+- Type all middleware functions, lifespan handlers, exception handlers.
+
+### Docstrings
+- Google-style on all public functions, classes, routes, and middleware.
+- FastAPI routes: description in docstring becomes OpenAPI description — make it informative.
+
+### Logging
+- **Never `print()`** — `import logging; logger = logging.getLogger(__name__)`.
+- **Structured request/response logging middleware** is a critical requirement — see middleware section below.
+- Log request_id, method, path, status_code, latency_ms, model, tokens at INFO level.
+- Log errors with full traceback via `logger.exception()`.
+
+### Exception Handling
+- Custom exceptions in `api/exceptions.py`: `BackendUnavailableError`, `ModelNotFoundError`, `RateLimitError`, `ValidationError`.
+- FastAPI exception handlers for each custom exception type.
+- Never bare `except:` — always specific types.
+
+---
+
+## Structured Request/Response Logging Middleware
+
+This is a critical missing piece. Implement in `api/main.py`:
+
+```python
+import logging
+import time
+import uuid
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+logger = logging.getLogger("api.access")
+
+class StructuredLoggingMiddleware(BaseHTTPMiddleware):
+    """Log all API requests and responses with structured fields.
+    
+    Logs: request_id, method, path, status_code, latency_ms, 
+          client_ip, user_agent, content_length, model (if in body).
+    """
+    
+    async def dispatch(self, request: Request, call_next) -> Response:
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+        start_time = time.perf_counter()
+        
+        response = await call_next(request)
+        
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        
+        logger.info(
+            "request",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "latency_ms": round(latency_ms, 2),
+                "client_ip": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent", ""),
+            }
+        )
+        response.headers["X-Request-ID"] = request_id
+        return response
+```
+
+---
+
+## Canonical Paths (Duplicates Are Bugs)
+
+**CANONICAL:**
+- `triton/model_repository/` — the real model repository
+- `monitoring/grafana/gpu_serving_dashboard.json` — the real Grafana dashboard
+
+**DUPLICATES TO REMOVE:**
+- `triton/model_repo/` — remove entirely, redirect any references to `triton/model_repository/`
+- `monitoring/grafana_dashboard.json` — remove from root, update any references
+
+When removing duplicates, always:
+1. Check that the canonical path has the latest content
+2. `grep -r "model_repo/" --include="*.py" --include="*.yaml" --include="*.json"` to find all references
+3. Update all references before removing the duplicate
+4. Commit the cleanup in a separate commit from any feature changes
+
+---
+
+## vLLM Server Patterns
+
+```python
+# vllm/server.py — wrapper around vLLM AsyncLLMEngine
+from vllm import AsyncLLMEngine, AsyncEngineArgs
+from vllm.sampling_params import SamplingParams
+
+async def start_engine(model_name: str, tensor_parallel_size: int = 1) -> AsyncLLMEngine:
+    args = AsyncEngineArgs(
+        model=model_name,
+        tensor_parallel_size=tensor_parallel_size,
+        dtype="bfloat16",
+    )
+    return AsyncLLMEngine.from_engine_args(args)
+```
+
+---
+
+## Ray Serve Patterns
+
+```python
+# ray_serve/deployment.py
+import ray
+from ray import serve
+
+@serve.deployment(
+    num_replicas=2,
+    ray_actor_options={"num_gpus": 1},
+    autoscaling_config={
+        "min_replicas": 1,
+        "max_replicas": 8,
+        "target_num_ongoing_requests_per_replica": 10,
+    },
+)
+class LLMDeployment:
+    async def __call__(self, request: Request) -> Response: ...
+```
+
+---
+
+## Kubernetes Patterns
+
+- DCGM exporter sidecar on every GPU node (DaemonSet in `kubernetes/dcgm-exporter.yaml`)
+- HPA uses custom metric `DCGM_FI_DEV_GPU_UTIL` — target 70% utilization
+- Triton deployment uses `nvidia.com/gpu: "1"` resource requests
+- All k8s manifests use `app.kubernetes.io/` labels
+
+---
+
+## Test Conventions
+
+- FastAPI testing: use `httpx.AsyncClient` with `app=app, base_url="http://test"`
+- Mock all GPU/backend calls in unit tests
+- `@pytest.mark.parametrize` for endpoint variants (model names, request types)
+- Load tests (`evals/benchmark.py`) use locust — separate from pytest
+- Mark GPU tests `@pytest.mark.gpu` — excluded from default pytest run
+
+---
+
+## File Organization Rules
+
+- `api/main.py` is the single FastAPI application — all routes, middleware, lifespan
+- One backend client per file in `vllm/`, `triton/`, `ray_serve/`, `bentoml/`
+- Kubernetes manifests organized by component (not by environment)
+- Grafana dashboards are JSON files provisioned via ConfigMap — never edit manually in UI
+- All duplicate files are bugs — canonical path is always deeper in the hierarchy
+
+---
+
+## What NOT To Do
+
+- **Do NOT use `triton/model_repo/`** — the canonical path is `triton/model_repository/`
+- **Do NOT use `monitoring/grafana_dashboard.json` (root)** — canonical is `monitoring/grafana/gpu_serving_dashboard.json`
+- **Do NOT add new routes** without corresponding `StructuredLoggingMiddleware` coverage
+- **Do NOT use `print()`** anywhere — use logging
+- **Do NOT hardcode model names** — always from `configs/models.yaml`
+- **Do NOT skip `X-Request-ID` header** — every response must include it
+- **Do NOT use sync endpoint handlers** — all FastAPI route functions must be `async def`
+- **Do NOT expose raw backend errors** to API clients — wrap in standardized error format
+- **Do NOT skip health checks** — every backend must have a `/health` check endpoint
+- **Do NOT use bare `except:`** anywhere
+
+---
+
+## CI/CD
+
+- GitHub Actions: `ruff check .`, `mypy --strict`, `pytest tests/ -m "not gpu"` on every PR
+- Container image pushed to NVCR on merge to main
+- Kubernetes deployment via Helm or kustomize
+- Grafana dashboards version-controlled in `monitoring/grafana/`
+
+---
+
+## Cross-Repo Standards
+
+- All secrets via `.env` + `python-dotenv`
+- `ruff` + `mypy` in CI
+- `docker-compose.yml` at repo root (already present)
