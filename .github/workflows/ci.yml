@@ -24,7 +24,7 @@ jobs:
         run: ruff check .
 
       - name: Install test deps
-        run: pip install pytest pytest-cov fastapi httpx pydantic python-dotenv openai
+        run: pip install pytest pytest-cov fastapi httpx pydantic python-dotenv openai uvicorn
 
       - name: Run tests
         run: pytest tests/ -v --cov=api --cov=vllm --cov=triton --cov-report=term-missing
