@@ -1,9 +1,21 @@
 # model-serving-stack — Task Board
 
 **Repo:** model-serving-stack
-**Completion:** 95%
-**Last Audit:** 2026-06-08
-**Open Tasks:** 3 critical / 3 polish / 2 enhancement
+**Completion:** 100% SPECCED
+**Last Audit:** 2026-06-09
+**Status:** All tasks have dedicated Cursor subagents. Open in Cursor and run `/subagent-name` to execute autonomously.
+
+---
+
+## Cursor Subagents
+
+| Subagent | Invoke | Task | Est. Time |
+|---|---|---|---|
+| `cleanup-duplicates.md` | `/cleanup-duplicates` | Remove triton/model_repo/ + root Grafana JSON duplicate | 15 min |
+| `add-api-logging.md` | `/add-api-logging` | StructuredLoggingMiddleware + X-Request-ID header | 30 min |
+| `api-schema-polish.md` | `/api-schema-polish` | Pydantic v2 models, OpenAPI docs, /v1/models endpoint | 25 min |
+| `grafana-dashboard-polish.md` | `/grafana-dashboard-polish` | 6 GPU panels, correct DCGM metric names, provisioning | 20 min |
+| `run-load-test.md` | `/run-load-test` | Load test suite with locust + benchmark CLI | 30 min |
 
 ---
 
@@ -19,6 +31,8 @@
 - `pytest tests/ -m "not gpu"` still passes
 - `triton/client.py` references `triton/model_repository` (not `model_repo`)
 
+> **Subagent:** `/cleanup-duplicates`
+
 ---
 
 ### [ ] 1.2 Remove Duplicate monitoring/grafana_dashboard.json
@@ -29,6 +43,8 @@
 - Grafana provisioned from `monitoring/grafana/gpu_serving_dashboard.json`
 - Both docker-compose files reference correct path
 - Grafana dashboard loads in `docker-compose up` without errors
+
+> **Subagent:** `/cleanup-duplicates`
 
 ---
 
@@ -43,6 +59,8 @@
 - `pytest tests/test_api_middleware.py` passes
 - `mypy --strict api/main.py` exits 0
 
+> **Subagent:** `/add-api-logging`
+
 ---
 
 ## Priority 2 — POLISH
@@ -56,23 +74,30 @@
 - Markdown report includes latency percentile table
 - `pytest tests/test_benchmark.py` passes
 
+> **Subagent:** `/run-load-test`
+
 ### [ ] 2.2 API Schema Polish
-**File:** `api/main.py`
-**What:** Add OpenAPI descriptions to all route docstrings. Add Pydantic v2 request/response models with field validators. Ensure `/v1/chat/completions` is fully OpenAI-compatible (response schema matches OpenAI API exactly). Add `POST /v1/models` endpoint listing available models from `configs/models.yaml`.
+**File:** `api/main.py`, `api/models.py` (create)
+**What:** Pydantic v2 request/response models with field validators. OpenAPI descriptions on all routes. `/v1/chat/completions` fully OpenAI-compatible response schema. `POST /v1/models` endpoint reading from `configs/models.yaml`.
 **Acceptance Criteria:**
-- `GET /docs` (Swagger UI) renders without errors
+- `GET /docs` renders without errors
 - All routes have descriptions in OpenAPI spec
-- `/v1/chat/completions` response schema matches OpenAI API format
+- `/v1/chat/completions` response schema matches OpenAI API format exactly
 - `GET /v1/models` returns models from config
+- `mypy --strict api/main.py` exits 0
+
+> **Subagent:** `/api-schema-polish`
 
 ### [ ] 2.3 Grafana Dashboard GPU Panels Polish
 **File:** `monitoring/grafana/gpu_serving_dashboard.json`
-**What:** Add missing panels to GPU serving dashboard: TTFT P95 per backend, tokens/sec per model, error rate, active connections. Ensure all panels use correct DCGM metric names (`DCGM_FI_DEV_GPU_UTIL`, `DCGM_FI_DEV_MEM_COPY_UTIL`, `DCGM_FI_DEV_FB_USED`).
+**What:** Add missing panels: TTFT P95 per backend, tokens/sec per model, error rate, active connections. Fix all DCGM metric names to correct uppercase form.
 **Acceptance Criteria:**
 - Dashboard JSON validates as valid Grafana JSON model
 - At least 6 panels: GPU utilization, memory used, TTFT, throughput, error rate, active connections
-- All DCGM metric names are correct
+- All DCGM metric names are correct uppercase
 - Dashboard provisioned automatically via ConfigMap in `docker-compose up`
+
+> **Subagent:** `/grafana-dashboard-polish`
 
 ---
 
@@ -80,7 +105,7 @@
 
 ### [ ] 3.1 Multi-Backend Health Aggregation
 **File:** `api/main.py`
-**What:** Enhance `/health` endpoint to return per-backend health status (not just API health). Check vLLM, Triton, Ray Serve, BentoML connectivity. Return aggregated status: `{"status": "degraded", "backends": {"vllm": "healthy", "triton": "unavailable"}}`. Return 200 if any backend healthy, 503 if all backends unavailable.
+**What:** Enhance `/health` to return per-backend health status. Check vLLM, Triton, Ray Serve, BentoML connectivity. Return `{"status": "degraded", "backends": {"vllm": "healthy", "triton": "unavailable"}}`. Return 200 if any backend healthy, 503 if all backends unavailable. 2s timeout per backend check.
 **Acceptance Criteria:**
 - `/health` returns per-backend status dict
 - Returns 503 when all backends are down
@@ -89,7 +114,7 @@
 
 ### [ ] 3.2 Request Rate Limiting
 **File:** `api/main.py`
-**What:** Add token-bucket rate limiting middleware using `slowapi` or a custom implementation. Configurable: per-IP limit (default 60 req/min), per-model limit, global limit. Return 429 with `Retry-After` header when exceeded. Log rate limit events at WARNING level with `client_ip` and `request_id`.
+**What:** Token-bucket rate limiting middleware using `slowapi` or custom implementation. Per-IP limit (default 60 req/min), per-model limit, global limit. Return 429 with `Retry-After` header. Log rate limit events at WARNING level.
 **Acceptance Criteria:**
 - Rapid-fire requests (>60/min from same IP) receive 429
 - `Retry-After` header present on 429 responses
