@@ -10,8 +10,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
-
 from evals.benchmark import BenchmarkResult, run_benchmark
 
 logger = logging.getLogger(__name__)
