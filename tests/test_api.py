@@ -1,6 +1,8 @@
 """Unit tests for FastAPI gateway."""
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+
 from api.main import app
 
 client = TestClient(app)

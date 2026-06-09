@@ -1,8 +1,9 @@
 """OpenAI-compatible FastAPI gateway."""
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from vllm.client import VLLMClient
-import uvicorn
 
 app = FastAPI(title="model-serving-stack", version="0.1.0")
 client = VLLMClient()

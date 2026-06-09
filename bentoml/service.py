@@ -1,8 +1,8 @@
 """BentoML service for portable model packaging."""
-import bentoml
 from bentoml.io import JSON
-from vllm.client import VLLMClient
 
+import bentoml
+from vllm.client import VLLMClient
 
 llm_runner = bentoml.Runner(VLLMClient, name="vllm_runner")
 svc = bentoml.Service("llm_service", runners=[llm_runner])

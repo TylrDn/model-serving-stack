@@ -1,8 +1,9 @@
 """Latency and throughput benchmarking suite."""
-import time
 import asyncio
-import httpx
+import time
 from dataclasses import dataclass
+
+import httpx
 
 
 @dataclass

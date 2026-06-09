@@ -1,12 +1,15 @@
 """OpenAI-compatible /v1/chat/completions endpoint backed by vLLM."""
 from __future__ import annotations
+
 import os
 import time
 import uuid
-from typing import List, Optional
+from typing import List
+
 from fastapi import FastAPI
 from pydantic import BaseModel
-from vllm import AsyncLLMEngine, AsyncEngineArgs, SamplingParams
+
+from vllm import AsyncEngineArgs, AsyncLLMEngine, SamplingParams
 
 app = FastAPI(title="vLLM OpenAI-Compatible Server")
 
@@ -51,5 +54,11 @@ async def chat_completions(request: ChatCompletionRequest):
         "object": "chat.completion",
         "created": int(time.time()),
         "model": request.model,
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
+            },
+        ],
     }

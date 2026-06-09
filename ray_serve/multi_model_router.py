@@ -1,11 +1,12 @@
 """Multi-model router for A/B routing across model deployments."""
 from __future__ import annotations
-import os
+
 import random
-from ray import serve
+from typing import Optional
+
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Optional
+from ray import serve
 
 app = FastAPI(title="Multi-Model Router")
 

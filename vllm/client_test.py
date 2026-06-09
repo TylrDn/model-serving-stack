@@ -1,8 +1,8 @@
 """Load test client for vLLM OpenAI-compatible server."""
 import asyncio
 import time
+
 import httpx
-from typing import List
 
 BASE_URL = "http://localhost:8000"
 CONCURRENCY = 10

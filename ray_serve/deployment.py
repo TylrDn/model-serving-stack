@@ -1,9 +1,10 @@
 """Ray Serve LLM deployment with autoscaling."""
-from ray import serve
-from ray.serve.config import AutoscalingConfig
-from vllm.client import VLLMClient
 from fastapi import FastAPI
 from pydantic import BaseModel
+from ray import serve
+from ray.serve.config import AutoscalingConfig
+
+from vllm.client import VLLMClient
 
 app = FastAPI()
 

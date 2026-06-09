@@ -1,6 +1,7 @@
 """vLLM OpenAI-compatible server launcher."""
-import subprocess
 import os
+import subprocess
+
 from dotenv import load_dotenv
 
 load_dotenv()
