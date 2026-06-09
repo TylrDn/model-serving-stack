@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest-cov pytest-asyncio pyyaml
+        run: pip install -r requirements.txt pytest-cov pytest-asyncio pyyaml ruff
 
       - name: Lint with ruff
         run: ruff check .
