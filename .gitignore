@@ -14,3 +14,7 @@ venv/
 .idea/
 .vscode/
 *.ipynb_checkpoints
+
+.coverage
+htmlcov/
+results/
