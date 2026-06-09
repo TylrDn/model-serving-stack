@@ -21,3 +21,13 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+markers = ["gpu: marks tests that require a GPU"]
+
+[tool.coverage.run]
+omit = [
+    "evals/benchmark.py",
+    "vllm/server.py",
+    "vllm/openai_server.py",
+    "vllm/client_test.py",
+]
