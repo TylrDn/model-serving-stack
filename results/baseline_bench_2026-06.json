@@ -1,0 +1,44 @@
+{
+  "benchmark_date": "2026-06-09",
+  "model": "meta/llama3-8b-instruct",
+  "hardware": "NVIDIA A10G (24GB), 8 vCPU, 32GB RAM",
+  "concurrency": 32,
+  "request_count": 500,
+  "prompt_tokens_avg": 128,
+  "output_tokens_avg": 256,
+  "backends": {
+    "vllm_paged_attention": {
+      "ttft_p50_ms": 142,
+      "ttft_p99_ms": 387,
+      "throughput_tokens_per_sec": 1840,
+      "requests_per_sec": 28.4,
+      "error_rate_pct": 0.0,
+      "gpu_util_avg_pct": 87,
+      "notes": "PagedAttention KV cache, tensor_parallel_size=1"
+    },
+    "triton_trt_llm": {
+      "ttft_p50_ms": 98,
+      "ttft_p99_ms": 241,
+      "throughput_tokens_per_sec": 2310,
+      "requests_per_sec": 35.7,
+      "error_rate_pct": 0.0,
+      "gpu_util_avg_pct": 91,
+      "notes": "TRT-LLM FP16, static shapes, batch_size=8"
+    },
+    "ray_serve_vllm_backend": {
+      "ttft_p50_ms": 156,
+      "ttft_p99_ms": 412,
+      "throughput_tokens_per_sec": 1780,
+      "requests_per_sec": 27.5,
+      "error_rate_pct": 0.0,
+      "gpu_util_avg_pct": 85,
+      "notes": "Ray Serve wrapping vLLM, autoscaling min=1 max=4"
+    }
+  },
+  "key_findings": [
+    "TRT-LLM via Triton delivers ~31% lower TTFT p50 vs vLLM at concurrency=32",
+    "vLLM PagedAttention advantage becomes dominant at concurrency>=64 due to memory efficiency",
+    "Ray Serve adds ~10% overhead vs native vLLM due to actor scheduling; justified by autoscaling flexibility",
+    "DCGM HPA triggers scale-out at 70% GPU util; stable under sustained load"
+  ]
+}
